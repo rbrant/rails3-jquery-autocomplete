@@ -9,22 +9,30 @@ module Rails3JQueryAutocomplete
       end
 
       def get_autocomplete_items(parameters)
-        model   = parameters[:model]
-        term    = parameters[:term]
-        method  = parameters[:method]
-        options = parameters[:options]
-        scopes  = Array(options[:scopes])
+        model          = parameters[:model]
+        term           = parameters[:term]
+        method         = parameters[:method]
+        options        = parameters[:options]
+        scopes         = Array(options[:scopes])
+        dynamic_scopes = Array(options[:dynamic_scopes])
+        
         limit   = get_autocomplete_limit(options)
         order   = get_autocomplete_order(method, options, model)
 
-
         items = model.scoped
-
+        
         scopes.each { |scope| items = items.send(scope) } unless scopes.empty?
-
+        
+        if dynamic_scopes.present?
+          dynamic_scopes.each { |d_scope| 
+            args = d_scope[:args].inject([]){ |m,o| m << (o[:eval] ? eval(o[:val]) : o[:val]) }
+            items = items.send(d_scope[:name], *args)      
+          }
+        end
+        
         items = items.select(get_autocomplete_select_clause(model, method, options)) unless options[:full_model]
         items = items.where(get_autocomplete_where_clause(model, term, method, options)).
-            limit(limit).order(order)
+                      limit(limit).order(order)
       end
 
       def get_autocomplete_select_clause(model, method, options)
